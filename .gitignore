@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables (contains secrets)
+.env
+
+# Logs
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Document files (too large for git)
+doc/
+
+# uv
+# uv.lock is kept for reproducibility
