@@ -27,6 +27,7 @@ Thumbs.db
 
 # Document files (too large for git)
 doc/
+output/
 
 # uv
 # uv.lock is kept for reproducibility
