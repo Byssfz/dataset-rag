@@ -81,7 +81,7 @@ def step_2_rerank_doc_list(doc_list, state):
     # 4. 处理数据 设置 问题 + 答案 成对 -》 装到列表中，调用打分方法
     # [   [问题,答案]  , (问题，答案) -》 512]
     questions_pairs = [[rewritten_query, text] for text in text_list]
-    # normalize=True 默认False 分的范围不确定 7  8 9    0  - 1  -3  -8 分差特别大
+    # normalize=True 默认False 分的范围不确定 + 0 -   3  0  -3
     #                   True  分 缩放到 0 - 1 分
     # 返回值： [0.93,0.91,0.90,0.39,0.6,0.5,0.4,0.3,0.2,0.1] 成对问题对应的分！ 顺序也是相同
     scores = rerank.compute_score(questions_pairs, normalize=True)
@@ -95,6 +95,69 @@ def step_2_rerank_doc_list(doc_list, state):
     doc_list_with_score.sort(key=lambda x: x['score'], reverse=True)
     logger.info(f"已经完成排序和打分！最终结果为：{doc_list_with_score}")
     return doc_list_with_score
+
+
+def step_3_topk_and_gap(rerank_score_list):
+    """
+    对rerank模型打分以后得有序集合进行再次算法筛选！
+    取出动态的topk元素即可
+
+    问题稠密和稀疏向量           =   （问题进行向量混合搜索）
+                                                                    =》 rrf(同源的排序 rank + weight ) => rrf
+    问题+假设性答案稠密和稀疏向量  =   （问题+假设性答案进行向量混合搜索）                                                => rerank => 算法 =》 topk
+                                                                                                     => mcp
+    :param rerank_score_list:
+    :return:
+    """
+    """
+       [
+         {
+               text:内容 snippet content,
+               chunk_id: chunk_id rrf有  mcp None,
+               title: title ,
+               url : rrfNone mcp url ,
+               source: web -> mcp  || local -> rrf ,
+               score: rerank打的分
+         }
+       ]
+    """
+    max_topk = RERANK_MAX_TOPK  # 至多获取的元素的数量
+    min_topk = RERANK_MIN_TOPK  # 至少获取的元素数量
+    gap_abs = RERANK_GAP_ABS  # 断崖的分差    0.9  0.64 =》 0.26 （分）
+    gap_ratio = RERANK_GAP_RATIO  # 断崖的百分比  （1-2）/ 1  =》 0.25 保留
+    # 思路： 两个对比 1 2    2 3  3 4 4 5 （双指针）
+    # 1.思考最大截取数量
+    # topk不应该大于列表长度
+    topk = min(max_topk, len(rerank_score_list))
+    # 2.循环处理数据列表，进行双指针处理和比较
+    if topk > min_topk:
+        # 正常循环 min-1 , topk -1
+        for index in range(min_topk - 1, topk - 1):
+            # 双指针 【前，后】
+            score_1 = rerank_score_list[index].get("score", 0.0)
+            score_2 = rerank_score_list[index + 1].get("score", 0.0)
+            # 算分数的差值 gap
+            gap = score_1 - score_2
+            # 0.9 0.8  0.1 / 0.9
+            # 除法 分母不能为 为0  1e-6 防止为 0
+            #  score_1 = -0.5  score_2 = - 0.8
+            #  0.3 / -0.5 =  -rel
+            #  abs = rel 正值
+            rel = gap / (abs(score_1) + 1e-6)
+            if gap >= gap_abs or rel >= gap_ratio:
+                # 断崖
+                logger.info(f"数据集合{index}和{index + 1}的位置发生了断崖，结束循环！！")
+                topk = index + 1  # index下标从0开始 topk对应的截取长度从1
+                break
+    # else:
+    # min_topk = topk  不用管
+    # min_topk 3 > topk 0  list 0
+    # 3.截取确定的数量topk
+    topk_doc_list = rerank_score_list[:topk]
+    # 4.打印日志处理
+    logger.info(f"最终截取的长度：{topk},截取的内容:{topk_doc_list}")
+    # 5.返回结果
+    return topk_doc_list
 
 
 def node_rerank(state):
@@ -138,10 +201,10 @@ def node_rerank(state):
     ]
     """
     rerank_score_list = step_2_rerank_doc_list(doc_list, state)
-    # 3. 启动算法进行放断崖以及topk处理
-
+    # 3. 启动算法进行放断崖以及topk处理  0.9  0.89  0.35
+    final_doc_list = step_3_topk_and_gap(rerank_score_list)
     # 4. 结果装到state中即可
-
+    state["reranked_docs"] = final_doc_list
     add_done_task(state['session_id'], sys._getframe().f_code.co_name, state.get("is_stream"))
     return state
 

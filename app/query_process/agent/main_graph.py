@@ -26,7 +26,7 @@ builder.set_entry_point("node_item_name_confirm")
 # node_item_name_confirm 可能出现，没有明确的主体 item_name 我们会提前结束返回用户提示，让他明确内容！！
 # node_item_name_confirm -> (answer: str  # 最终生成的答案) -》答案生成 给前端反馈  || 多路召回
 # 条件边！！！ conditional_edges
-
+# 并行执行：当返回元组 (node1, node2, node3) 时，LangGraph会并行执行这三个节点，提高效率
 def route_after_node_item_name_confirm(state: QueryGraphState):
     if state['answer']:
         return "node_answer_output"
