@@ -6,6 +6,7 @@ from app.query_process.agent.nodes.node_rerank import node_rerank
 from app.query_process.agent.nodes.node_rrf import node_rrf
 from app.query_process.agent.nodes.node_search_embedding import node_search_embedding
 from app.query_process.agent.nodes.node_search_embedding_hyde import node_search_embedding_hyde
+from app.query_process.agent.nodes.node_search_kg import node_search_kg
 from app.query_process.agent.nodes.node_web_search_mcp import node_web_search_mcp
 from app.query_process.agent.state import QueryGraphState
 
@@ -15,6 +16,7 @@ builder = StateGraph(QueryGraphState)
 builder.add_node("node_item_name_confirm",node_item_name_confirm)
 builder.add_node("node_search_embedding",node_search_embedding)
 builder.add_node("node_search_embedding_hyde",node_search_embedding_hyde)
+builder.add_node("node_search_kg",node_search_kg)
 builder.add_node("node_web_search_mcp",node_web_search_mcp)
 builder.add_node("node_rrf",node_rrf)
 builder.add_node("node_rerank",node_rerank)
@@ -30,7 +32,7 @@ builder.set_entry_point("node_item_name_confirm")
 def route_after_node_item_name_confirm(state: QueryGraphState):
     if state['answer']:
         return "node_answer_output"
-    return "node_search_embedding","node_search_embedding_hyde","node_web_search_mcp"
+    return "node_search_embedding","node_search_embedding_hyde","node_web_search_mcp","node_search_kg"
 
 builder.add_conditional_edges("node_item_name_confirm"
                               , route_after_node_item_name_confirm,
@@ -38,13 +40,15 @@ builder.add_conditional_edges("node_item_name_confirm"
                                   "node_answer_output":"node_answer_output",
                                   "node_search_embedding":"node_search_embedding",
                                   "node_search_embedding_hyde":"node_search_embedding_hyde",
-                                  "node_web_search_mcp":"node_web_search_mcp"
+                                  "node_web_search_mcp":"node_web_search_mcp",
+                                  "node_search_kg":"node_search_kg"
                               })
 #这里都先到rrf但是网络搜索不参与粗排，与图不同，逻辑差不多
 #这里可能会有并发修改问题，不能都直接返回state，改了啥就修改啥
 builder.add_edge("node_search_embedding","node_rrf")
 builder.add_edge("node_search_embedding_hyde","node_rrf")
 builder.add_edge("node_web_search_mcp","node_rrf")
+builder.add_edge("node_search_kg","node_rrf")
 
 #最后一起到rerank，是为了保证同时到达，并发
 builder.add_edge("node_rrf","node_rerank")

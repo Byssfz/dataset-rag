@@ -20,6 +20,8 @@ def step_3_reciprocal_rank_fusion(source_with_weight,top_k:int =5):
     #     ]
     # 3. 循环处理每个集合中的数据，进行积分计算
     for source, weight in source_with_weight:
+        if not source:
+            continue
         # source = 【{id: 实体的主键,distance:得分 0.8,entity:{chunk_id,content,title..}} ,{} ,{}】
         # weight = 1.0
         # 嵌套遍历，遍历具体路的数据和chunk
@@ -47,30 +49,48 @@ def step_3_reciprocal_rank_fusion(source_with_weight,top_k:int =5):
     logger.info(f"完成了rrf排序处理完毕，结果为：{rank_chunks}")
     return rank_chunks
 
+def _convert_kg_to_rrf_format(kg_docs):
+    """
+    将 KG 文档转换为 RRF 兼容格式
+    KG 格式: {"chunk_id": "...", "text": "...", "title": "...", "source": "kg", "kg": {...}}
+    RRF 期望格式: {"id": ..., "distance": ..., "entity": {"chunk_id": ..., "content": ..., "title": ...}}
+    """
+    rrf_format_list = []
+    for kg_doc in kg_docs:
+        confidence = kg_doc.get("kg", {}).get("confidence", 0.7)
+        rrf_format_list.append({
+            "id": kg_doc.get("chunk_id", ""),
+            "distance": 1.0 - confidence,
+            "entity": {
+                "chunk_id": kg_doc.get("chunk_id", ""),
+                "content": kg_doc.get("text", ""),
+                "title": kg_doc.get("title", ""),
+                "source": "kg"
+            }
+        })
+    return rrf_format_list
+
+
 def node_rrf(state):
     """
     节点功能：Reciprocal Rank Fusion
-    将多路召回的结果（向量、HyDE、Web、KG）进行加权融合排序。
+    将多路召回的结果（向量、HyDE、KG）进行加权融合排序。
     """
     print("---RRF---")
     add_running_task(state["session_id"], sys._getframe().f_code.co_name, state.get("is_stream"))
 
-    # 1. 获取同源路的数据
-    # 长啥样？？？？
-    # milvus => [[],[]]  1. 单列查询  data = [向量1，向量2]   -> [[向量1],[向量2]]
-    #                    2. 混合查询 reps = [anns....]      -> [[]]
-    #                     [向量1]  =》 【{id: 实体的主键,distance:得分 0.8,entity:{chunk_id,content,title..}} ,{} ,{}】
     embedding_chunks = state.get("embedding_chunks")
     hyde_embedding_chunks = state.get("hyde_embedding_chunks")
-    # 2. 数据进行整合 （捏到一起）这里既有rrf也有权重
-    # 权重后续方便动态调整！ 相同 1.0 1.0
+    kg_docs = state.get("kg_docs", [])
+
+    kg_rrf_chunks = _convert_kg_to_rrf_format(kg_docs)
+
     source_with_weight = [
-        (embedding_chunks,1.0),
-        (hyde_embedding_chunks,1.0)
+        (embedding_chunks, 1.0),
+        (hyde_embedding_chunks, 1.0),
+        (kg_rrf_chunks, 1.0)
     ]
-    # 3. rrf算法进行数据排序处理
     rrf_response = step_3_reciprocal_rank_fusion(source_with_weight)
-    # 4. 将排序后的数据添加到state [rrf_chunks] 属性即可
     state["rrf_chunks"] = rrf_response
     add_done_task(state['session_id'], sys._getframe().f_code.co_name, state.get("is_stream"))
     return state

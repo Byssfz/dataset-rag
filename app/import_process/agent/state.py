@@ -37,6 +37,7 @@ class ImportGraphState(TypedDict):
 
     # --- 数据库相关 ---
     embeddings_content: list # 包含向量数据的列表，准备写入 Milvus
+    kg_triples: list      # 知识图谱抽取出的三元组
 
 
 # 建议定一个初始化对象，方便后续使用
@@ -59,7 +60,8 @@ graph_default_state: ImportGraphState = {
     "md_content": "",
     "chunks": [],
     "item_name": "",
-    "embeddings_content": []
+    "embeddings_content": [],
+    "kg_triples": []
 }
 
 def create_default_state(**overrides) -> ImportGraphState:

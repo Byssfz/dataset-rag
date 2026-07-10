@@ -13,6 +13,7 @@ class QueryGraphState(TypedDict):
     embedding_chunks: list  # 普通向量检索回来的切片
     hyde_embedding_chunks: list  # HyDE 检索回来的切片
     web_search_docs: list  # 网络搜索回来的文档
+    kg_docs: list  # 知识图谱召回的结构化事实文档
 
     # 排序过程中的数据
     rrf_chunks: list  # RRF 融合排序后的切片
@@ -38,6 +39,7 @@ query_graph_default_state: QueryGraphState = {
     "embedding_chunks": [],
     "hyde_embedding_chunks": [],
     "web_search_docs": [],
+    "kg_docs": [],
     "rrf_chunks": [],
     "reranked_docs": [],
     "prompt": "",

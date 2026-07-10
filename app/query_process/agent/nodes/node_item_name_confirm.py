@@ -155,26 +155,22 @@ def step_5_confirmed_and_optional_item_name(query_milvus_results):
         # 处理 -》 先处理高分 -》 有 -》 正常执行 || 如果没有 -》 才处理低分
         high_score_matches = [x for x in matches if x.get("score", 0) >= 0.85]
         middle_score_matches = [x for x in matches if x.get("score", 0) >= 0.6]
-        # 4. 处理高分的列表 只有一个1  获取一个1  ||  多个【item_name = extracted 】 or 获取最高分的1个
-        # 4.1 只有一个，获取一个
+
         if len(high_score_matches) == 1:
             confirmed_item_names.append(high_score_matches[0].get("item_name"))
             continue
-        # 4.2 有多个高分
+
         if len(high_score_matches) > 1:
-            # 同一个名 = 分不是1 也可能不是最高！！
-            # 优先考虑名字相同
             same_name_item = None
             for item in high_score_matches:
                 if item.get("item_name") == extracted_name:
                     same_name_item = item
                     break
             if not same_name_item:
-                same_name_item = high_score_matches[0]  # 获取分数最高的
+                same_name_item = high_score_matches[0]
             confirmed_item_names.append(same_name_item.get("item_name"))
+            continue
 
-            # 没有相同获取分数最高的
-        # 5. 处理可选分数列表 给用户返回提示，可以多带几个，截取2个！
         if len(middle_score_matches) > 0:
             for item in middle_score_matches[:2]:
                 options_item_names.append(item.get("item_name"))

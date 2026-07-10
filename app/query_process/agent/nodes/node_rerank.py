@@ -23,32 +23,28 @@ RERANK_GAP_ABS: float = 0.5  # 最大间断分值
 
 def step_1_merge_rrf_mcp(state):
     """
-    进行rrf + mcp数据整合
+    进行rrf + mcp + kg数据整合
     :param state:
     :return:
     """
-    # 1. state获取不同路的数据
     rrf_chunks = state.get("rrf_chunks", [])
     web_search_docs = state.get("web_search_docs", [])
-    # 2. 准备一个列表容器
     chunks_list = []
-    # 3. 循环进行数据添加
-    # 3.1 local rrf
+
     for chunk in rrf_chunks:
-        # chunk {id,distance,entity}
-        # chunk.get("entity") if "entity" in chunk else chunk
         entity = chunk.get('entity')
         chunk_id = entity.get('chunk_id')
         content = entity.get('content')
         title = entity.get('title')
+        source = entity.get('source', "local")
         chunks_list.append({
             "chunk_id": chunk_id,
             "text": content,
             "title": title,
-            "source": "local",
+            "source": source,
             "url": ""
         })
-    # 3.2 web   mcp
+
     for doc in web_search_docs:
         text = doc.get("snippet")
         url = doc.get("url")
