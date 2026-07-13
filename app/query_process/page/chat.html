@@ -808,6 +808,9 @@
             // 流式 delta 可能不包含“【图片】/图片列表”，最终包的 d.answer 才是完整答案；优先使用 d.answer
             const finalText = (d && typeof d.answer === 'string' && d.answer.trim().length > 0) ? d.answer : (rawAnswerText || answerEl.textContent || '');
             renderAnswerWithImages(answerEl, finalText, d.image_urls || []);
+            if(d && d.status){
+              renderProgress(botMsgEl, d.done_list, d.running_list, d.status);
+            }
           }catch(_){}
           es.close();
           sendBtn.disabled = false;
@@ -824,6 +827,9 @@
             const d = JSON.parse(e.data || '{}');
             const finalText = (d && typeof d.answer === 'string' && d.answer.trim().length > 0) ? d.answer : (rawAnswerText || answerEl.textContent || '');
             renderAnswerWithImages(answerEl, finalText, d.image_urls || []);
+            if(d && d.status){
+              renderProgress(botMsgEl, d.done_list, d.running_list, d.status);
+            }
           }catch(_){}
           es.close();
           sendBtn.disabled = false;
@@ -891,5 +897,4 @@
   </script>
 </body>
 </html>
-
 

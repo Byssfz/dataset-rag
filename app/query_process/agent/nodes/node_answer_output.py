@@ -1,6 +1,12 @@
 import sys
 
-from app.utils.task_utils import add_running_task, add_done_task, set_task_result
+from app.utils.task_utils import (
+    add_running_task,
+    add_done_task,
+    get_done_task_list,
+    get_running_task_list,
+    set_task_result,
+)
 from app.utils.sse_utils import push_to_session, SSEEvent
 from app.query_process.agent.state import QueryGraphState
 from app.core.logger import logger
@@ -233,18 +239,25 @@ def node_answer_output(state):
         answer = step_3_create_answer(state, prompt)
         # 4. 没有 提取原来topklist中的图片地址，单独返回【see】
         images_url = step_4_extract_images_url(state)
-        # 6. sse-final->返回图片
-        if images_url:
-            # 不管流 和 非流都需要返回图片
-            push_to_session(state["session_id"],
-                            SSEEvent.FINAL,
-                            {"answer": answer,
-                             "status": "completed",
-                             "image_urls": images_url})
     # 数据都已经推送完毕了
     # 5. 添加聊天记录（mongodb）
     step_5_write_history(state)
     add_done_task(state['session_id'], sys._getframe().f_code.co_name, state.get("is_stream"))
+
+    # 流式查询必须发送最终事件，即使答案没有图片，也要让前端结束等待态。
+    # 携带最新节点列表，避免前端关闭 SSE 前丢失最后一个节点的完成状态。
+    if state.get("is_stream"):
+        push_to_session(
+            state["session_id"],
+            SSEEvent.FINAL,
+            {
+                "answer": state.get("answer", ""),
+                "status": "completed",
+                "done_list": get_done_task_list(state["session_id"]),
+                "running_list": get_running_task_list(state["session_id"]),
+                "image_urls": state.get("image_urls", []),
+            },
+        )
     print("---node_answer_output 节点处理结束---")
     return state
 

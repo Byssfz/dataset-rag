@@ -56,6 +56,9 @@ class QueryRequest(BaseModel):
 def run_query_graph(query: str, session_id: str, is_stream: bool):
     # 一会回调用 main_graph执行
     # 本次任务开启了！ is_stream = True 把结果加入到队列，sse可以取到
+    # session_id 同时用于维持会话历史和存放当前任务进度。每次新查询开始前
+    # 必须清理上一次查询的节点列表/结果，否则同一会话的后续查询会继承旧状态。
+    clear_task(session_id)
     update_task_status(session_id, "processing", is_stream)
 
     state = create_query_default_state(
@@ -135,13 +138,16 @@ async def history(session_id: str,limit: int = 10):
     """
     # 获取历史对话
     chats =  get_recent_messages(session_id,limit)
-    # items = []
-    # for chat in chats:
-    #     items.append(chat)
-    logger.info(f"查询历史对话，session_id = {session_id}成功！查询数据为：{chats}")
+    items = []
+    for chat in chats:
+        chat_dict = dict(chat)
+        if '_id' in chat_dict:
+            chat_dict['_id'] = str(chat_dict['_id'])
+        items.append(chat_dict)
+    logger.info(f"查询历史对话，session_id = {session_id}成功！查询数据为：{items}")
     return {
         "session_id":session_id,
-        "items": chats
+        "items": items
     }
 
 @app.delete("/history/{session_id}")
